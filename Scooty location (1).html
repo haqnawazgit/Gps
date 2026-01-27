@@ -1,0 +1,1862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scooty GPS Tracker</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    
+    <!-- Animate.css for smooth animations -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    
+    <!-- Leaflet Fullscreen -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.fullscreen@2.0.0/Control.FullScreen.css" />
+    
+    <style>
+        :root {
+            --primary-color: #3a86ff;
+            --secondary-color: #8338ec;
+            --success-color: #06d6a0;
+            --warning-color: #ffbe0b;
+            --danger-color: #ff006e;
+            --dark-color: #2b2d42;
+            --light-color: #f8f9fa;
+            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            --border-radius: 12px;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+            color: #333;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+        
+        .container-fluid { 
+            padding: 0;
+            max-width: 100%;
+        }
+        
+        #map { 
+            height: 65vh; 
+            width: 100%;
+            border-radius: var(--border-radius);
+            box-shadow: var(--card-shadow);
+            z-index: 1;
+            transition: all 0.3s ease;
+        }
+        
+        .panel {
+            background: white;
+            margin: 10px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--card-shadow);
+            overflow: hidden;
+            border: 1px solid rgba(0,0,0,0.05);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .panel:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .panel-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 12px 16px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .panel-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .panel-header:hover::before {
+            left: 100%;
+        }
+        
+        .panel-body {
+            padding: 12px;
+        }
+        
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+        
+        .info-table tr {
+            border-bottom: 1px solid #f0f0f0;
+            transition: background-color 0.2s;
+        }
+        
+        .info-table tr:hover {
+            background-color: rgba(58, 134, 255, 0.03);
+        }
+        
+        .info-table td {
+            padding: 8px 10px;
+            vertical-align: middle;
+        }
+        
+        .info-table strong {
+            color: var(--dark-color);
+            min-width: 100px;
+            display: inline-block;
+            font-weight: 600;
+        }
+        
+        .info-table .value {
+            color: #212529;
+            font-weight: 500;
+        }
+        
+        .distance-from-device { 
+            font-weight: 700; 
+            color: var(--secondary-color);
+            font-size: 1rem;
+        }
+        
+        .advanced-field { display: none; }
+        .hidden { display: none !important; }
+        
+        .top-controls {
+            padding: 12px 16px;
+            background: white;
+            border-bottom: 1px solid #e0e6ef;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            font-size: 0.85rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .top-controls .form-check { margin: 0; }
+        
+        #configuration-panel .row { margin: 0; }
+        #configuration-panel .col-md-4 { padding: 6px 8px; }
+        #configuration-panel .form-label { 
+            margin-bottom: 2px; 
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        #configuration-panel .form-control-sm, 
+        #configuration-panel .form-check-input { 
+            font-size: 0.78rem;
+            border-radius: 6px;
+            border: 1px solid #ced4da;
+        }
+        
+        @media (max-width: 576px) {
+            .info-table td { 
+                font-size: 0.8rem; 
+                padding: 6px 8px; 
+            }
+            .info-table strong { min-width: 85px; }
+            #map { height: 60vh; }
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 6px;
+            position: relative;
+        }
+        
+        .status-indicator.online { 
+            background: var(--success-color);
+            box-shadow: 0 0 8px var(--success-color);
+            animation: pulse 2s infinite;
+        }
+        
+        .status-indicator.offline { 
+            background: var(--danger-color);
+        }
+        
+        .status-indicator.demo { 
+            background: var(--warning-color);
+            animation: pulse 2s infinite;
+        }
+        
+        .scooty-marker {
+            background: transparent !important;
+            border: none !important;
+            filter: drop-shadow(0 0 8px rgba(0,0,0,0.3));
+        }
+        
+        .geofence-item {
+            font-size: 0.78rem;
+            padding: 6px 10px;
+            border-radius: 6px !important;
+            margin-bottom: 4px;
+            border-left: 3px solid var(--primary-color);
+            transition: all 0.2s;
+        }
+        
+        .geofence-item:hover {
+            background-color: rgba(58, 134, 255, 0.08);
+            transform: translateX(3px);
+        }
+        
+        .online-status-alert {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            max-width: 320px;
+            animation: slideInRight 0.5s ease, fadeOut 0.5s ease 3.5s forwards;
+            border-radius: 10px;
+            border: none;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .compact-controls .form-control-sm {
+            height: 28px;
+            font-size: 0.78rem;
+        }
+        
+        .compact-controls .form-label {
+            margin-bottom: 2px;
+            font-size: 0.78rem;
+        }
+        
+        .compact-controls .form-check {
+            min-height: auto;
+        }
+        
+        .compact-controls .form-check-input {
+            margin-top: 0;
+        }
+        
+        .compact-controls .btn-sm {
+            padding: 4px 10px;
+            font-size: 0.78rem;
+            border-radius: 6px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .compact-controls .btn-sm:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .geofence-alert {
+            background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+            border: 1px solid #ffd166;
+            color: #856404;
+            padding: 8px 12px;
+            border-radius: 8px;
+            margin-top: 6px;
+            font-size: 0.8rem;
+            animation: pulseAlert 2s infinite;
+        }
+        
+        .message-panel {
+            margin: 10px;
+        }
+        
+        .message-input-group {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .message-input {
+            flex: 1;
+            border-radius: 8px;
+            border: 1px solid #ced4da;
+            transition: all 0.3s;
+        }
+        
+        .message-input:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(58, 134, 255, 0.25);
+        }
+        
+        .charging-icon { 
+            color: var(--warning-color); 
+            margin-left: 4px;
+            animation: charging 1.5s infinite;
+        }
+        
+        .badge-custom {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .battery-container {
+            width: 60px;
+            height: 28px;
+            border: 2px solid #333;
+            border-radius: 4px;
+            position: relative;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 5px;
+        }
+        
+        .battery-level {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.5s ease;
+        }
+        
+        .battery-tip {
+            position: absolute;
+            right: -7px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 12px;
+            background: #333;
+            border-radius: 0 2px 2px 0;
+        }
+        
+        .speedometer {
+            width: 40px;
+            height: 40px;
+            position: relative;
+            display: inline-block;
+            margin-left: 5px;
+        }
+        
+        .speedometer-circle {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: conic-gradient(
+                var(--success-color) 0% 33%,
+                var(--warning-color) 33% 66%,
+                var(--danger-color) 66% 100%
+            );
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .speedometer-inner {
+            width: 70%;
+            height: 70%;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.8rem;
+        }
+        
+        /* Animations */
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(6, 214, 160, 0.7); }
+            70% { box-shadow: 0 0 0 6px rgba(6, 214, 160, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(6, 214, 160, 0); }
+        }
+        
+        @keyframes pulseAlert {
+            0% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.5); }
+            70% { box-shadow: 0 0 0 6px rgba(255, 193, 7, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
+        }
+        
+        @keyframes charging {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+        
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .leaflet-control-fullscreen {
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.2);
+        }
+        
+        /* Dark mode support */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --dark-color: #f8f9fa;
+                --light-color: #1a1d28;
+            }
+            
+            body {
+                background: linear-gradient(135deg, #12151f 0%, #1a1d28 100%);
+                color: #e0e0e0;
+            }
+            
+            .panel {
+                background: #2d3246;
+                border-color: #3a4058;
+            }
+            
+            .panel-header {
+                background: linear-gradient(135deg, #2a2f45, #3a3f5c);
+            }
+            
+            .info-table tr {
+                border-bottom-color: #3a4058;
+            }
+            
+            .info-table strong {
+                color: #b0b7d0;
+            }
+            
+            .info-table .value {
+                color: #e0e0e0;
+            }
+            
+            .top-controls {
+                background: #2d3246;
+                border-color: #3a4058;
+            }
+            
+            #configuration-panel .form-label {
+                color: #b0b7d0;
+            }
+            
+            #configuration-panel .form-control-sm {
+                background-color: #3a4058;
+                border-color: #4a516d;
+                color: #e0e0e0;
+            }
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary-color);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--secondary-color);
+        }
+        
+        /* Map controls styling */
+        .leaflet-control-zoom a {
+            border-radius: 4px !important;
+            margin-bottom: 4px;
+        }
+        
+        /* Loading animation */
+        .loading-spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(58, 134, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--primary-color);
+            animation: spin 1s ease-in-out infinite;
+            margin-left: 8px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Geofence alert speech bubble */
+        .speech-bubble {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
+            color: white;
+            padding: 12px 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            max-width: 300px;
+            animation: slideInRight 0.4s ease, fadeOut 0.5s ease 4s forwards;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .speech-bubble i {
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <!-- Top Controls with improved design -->
+        <div class="top-controls animate__animated animate__fadeInDown">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="toggle-config" role="switch">
+                    <label class="form-check-label" for="toggle-config">
+                        <i class="fas fa-cog me-1"></i> Config
+                    </label>
+                </div>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="show-more-details" role="switch">
+                    <label class="form-check-label" for="show-more-details">
+                        <i class="fas fa-info-circle me-1"></i> Details
+                    </label>
+                </div>
+                <button id="export-csv" class="btn btn-success btn-sm d-flex align-items-center">
+                    <i class="fas fa-file-export me-1"></i> Export CSV
+                </button>
+                <div class="vr"></div>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="auto-center" checked role="switch">
+                    <label class="form-check-label" for="auto-center">
+                        <i class="fas fa-crosshairs me-1"></i> Auto Center
+                    </label>
+                </div>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="auto-zoom" role="switch">
+                    <label class="form-check-label" for="auto-zoom">
+                        <i class="fas fa-search-plus me-1"></i> Auto Zoom
+                    </label>
+                </div>
+                <div class="ms-auto d-flex align-items-center">
+                    <div id="connection-status" class="d-flex align-items-center">
+                        <span class="status-indicator offline"></span>
+                        <small class="fw-medium">Not Connected</small>
+                        <div class="loading-spinner" id="connection-spinner"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Message Panel -->
+        <div class="panel message-panel animate-fade-in">
+            <div class="panel-header">
+                <span><i class="fas fa-comment-dots me-2"></i>Send Message to Device</span>
+                <span class="badge-custom" id="message-status">Ready</span>
+            </div>
+            <div class="panel-body">
+                <div class="message-input-group">
+                    <input type="text" class="form-control form-control-sm message-input" 
+                           id="message-input" placeholder="Type your message here...">
+                    <button class="btn btn-primary btn-sm d-flex align-items-center" id="send-message">
+                        <i class="fas fa-paper-plane me-1"></i> Send
+                        <div class="loading-spinner" id="message-spinner"></div>
+                    </button>
+                </div>
+                <div class="mt-2" id="last-message-container" style="display: none;">
+                    <small class="text-muted">Last message: </small>
+                    <small class="text-primary fw-medium" id="last-message"></small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Configuration Panel -->
+        <div id="configuration-panel" class="panel hidden">
+            <div class="panel-header">
+                <span><i class="fas fa-sliders-h me-2"></i>Configuration</span>
+                <button class="btn btn-sm btn-light" id="save-all-config">
+                    <i class="fas fa-save me-1"></i> Save All
+                </button>
+            </div>
+            <div class="panel-body compact-controls">
+                <div class="row g-2 mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label"><i class="fas fa-database me-1"></i>Firebase URL</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text"><i class="fas fa-link"></i></span>
+                            <input type="text" class="form-control form-control-sm" id="firebase-url" 
+                                   value="https://my-mobile-gps-default-rtdb.firebaseio.com/">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label"><i class="fas fa-project-diagram me-1"></i>Firebase Path</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text"><i class="fas fa-folder"></i></span>
+                            <input type="text" class="form-control form-control-sm" id="firebase-path" value="scootygps">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label"><i class="fas fa-map me-1"></i>Map Style</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text"><i class="fas fa-layer-group"></i></span>
+                            <select class="form-select form-select-sm" id="map-style">
+                                <option value="streets">Streets</option>
+                                <option value="satellite">Satellite</option>
+                                <option value="hybrid" selected>Hybrid</option>
+                                <option value="light">Light</option>
+                                <option value="dark">Dark</option>
+                                <option value="topo">Topographic</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row g-2 mb-3">
+                    <div class="col-md-3">
+                        <label class="form-label"><i class="fas fa-hand-point-up me-1"></i>Touch</label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="config-touch" role="switch">
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label"><i class="fas fa-circle me-1"></i>Radius (m)</label>
+                        <input type="number" class="form-control form-control-sm" id="config-radius" value="5">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label"><i class="fas fa-bell me-1"></i>Announce</label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="config-announcement" role="switch">
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label"><i class="fas fa-volume-up me-1"></i>Sounds</label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="config-sounds" role="switch" checked>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row g-2 mb-3">
+                    <div class="col-md-3">
+                        <label class="form-label"><i class="fas fa-table me-1"></i>Sheet</label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="config-sheet" role="switch">
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label"><i class="fas fa-tachometer-alt me-1"></i>S Thresh</label>
+                        <input type="number" class="form-control form-control-sm" id="config-sthreshold" value="3">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label"><i class="fas fa-clock me-1"></i>T Intvl (s)</label>
+                        <input type="number" class="form-control form-control-sm" id="config-tinterval" value="300">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label"><i class="fas fa-sync-alt me-1"></i>Update Intvl</label>
+                        <input type="number" class="form-control form-control-sm" id="update-interval" value="5000">
+                    </div>
+                </div>
+                
+                <div class="row g-2 mb-3">
+                    <div class="col-md-4">
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <label class="form-label"><i class="fas fa-broadcast-tower me-1"></i>Ping Intvl</label>
+                                <input type="number" class="form-control form-control-sm" id="ping-interval" value="5000">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label"><i class="fas fa-robot me-1"></i>Auto Ping</label>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="auto-ping" role="switch">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <label class="form-label"><i class="fas fa-search me-1"></i>Zoom Level</label>
+                                <input type="number" class="form-control form-control-sm" id="zoom-level" value="17" min="1" max="20">
+                            </div>
+                            <div class="col-6 d-flex align-items-end">
+                                <button id="apply-zoom" class="btn btn-primary btn-sm w-100">
+                                    <i class="fas fa-check"></i> Apply
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button id="ping-now" class="btn btn-secondary btn-sm w-100 me-1">
+                            <i class="fas fa-satellite-dish me-1"></i> Ping Now
+                        </button>
+                        <button id="clear-markers" class="btn btn-warning btn-sm w-100">
+                            <i class="fas fa-trash-alt me-1"></i> Clear
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Geofence Section -->
+                <div class="trip-summary mb-3">
+                    <h6 class="fw-bold mb-2"><i class="fas fa-fence me-2"></i>Geofence Management</h6>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-3">
+                            <input type="text" class="form-control form-control-sm" id="gf-name" placeholder="Geofence Name">
+                        </div>
+                        <div class="col-md-3">
+                            <input type="number" class="form-control form-control-sm" id="gf-lat" placeholder="Latitude" step="any">
+                        </div>
+                        <div class="col-md-2">
+                            <input type="number" class="form-control form-control-sm" id="gf-lng" placeholder="Longitude" step="any">
+                        </div>
+                        <div class="col-md-2">
+                            <input type="number" class="form-control form-control-sm" id="gf-radius" placeholder="Radius (m)">
+                        </div>
+                        <div class="col-md-2">
+                            <button id="add-geofence" class="btn btn-primary btn-sm w-100">
+                                <i class="fas fa-plus"></i> Add
+                            </button>
+                        </div>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-md-8">
+                            <label class="form-label">Current Geofences</label>
+                            <div id="gf-list" class="list-group" style="max-height: 120px; overflow-y: auto;"></div>
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <button id="save-geofence" class="btn btn-success btn-sm w-100">
+                                <i class="fas fa-save me-1"></i> Save All
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Scooty Information Panel -->
+        <div class="panel animate-fade-in">
+            <div class="panel-header">
+                <span><i class="fas fa-scooter me-2"></i>Scooty Information</span>
+                <div id="battery-visual" class="d-flex align-items-center" style="display: none !important;">
+                    <div class="battery-container">
+                        <div class="battery-level" id="battery-level"></div>
+                        <div class="battery-tip"></div>
+                    </div>
+                    <span id="battery-percent" class="ms-2 fw-bold">0%</span>
+                </div>
+            </div>
+            <div class="panel-body p-0">
+                <table class="info-table">
+                    <tr>
+                        <td><strong><i class="fas fa-power-off me-1"></i>Status:</strong> 
+                            <span id="info-status" class="value">-</span>
+                        </td>
+                        <td><strong><i class="fas fa-wifi me-1"></i>Online:</strong> 
+                            <span id="info-online-status" class="value">-</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong><i class="fas fa-battery-three-quarters me-1"></i>Battery:</strong> 
+                            <span id="info-battery" class="value">-</span>
+                        </td>
+                        <td><strong><i class="fas fa-tachometer-alt me-1"></i>Speed:</strong> 
+                            <span id="info-speed" class="value">-</span>
+                            <div class="speedometer" id="speedometer" style="display: none;">
+                                <div class="speedometer-circle">
+                                    <div class="speedometer-inner" id="speedometer-value">0</div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong><i class="fas fa-bolt me-1"></i>Ampere:</strong> 
+                            <span id="info-ampere" class="value">-</span>
+                        </td>
+                        <td><strong><i class="fas fa-ruler-combined me-1"></i>Distance:</strong> 
+                            <span id="info-device-distance" class="value distance-from-device">-</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td colspan="2"><strong><i class="fas fa-map-marker-alt me-1"></i>Address:</strong> 
+                            <span id="info-address" class="value">-</span> 
+                            <span id="info-place" class="value"></span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong><i class="fas fa-clock me-1"></i>Time:</strong> 
+                            <span id="info-time" class="value">-</span>
+                        </td>
+                        <td><strong><i class="fas fa-history me-1"></i>Last Update:</strong> 
+                            <span id="info-last-update" class="value">-</span>
+                        </td>
+                    </tr>
+                    <tr id="geofence-alert-row" style="display: none;">
+                        <td colspan="2" class="geofence-alert">
+                            <strong><i class="fas fa-exclamation-triangle me-1"></i>Geofence Alert:</strong> 
+                            <span id="info-geofence-alert">-</span>
+                        </td>
+                    </tr>
+                    <!-- Advanced Fields -->
+                    <tr class="advanced-field">
+                        <td><strong><i class="fas fa-globe-americas me-1"></i>Latitude:</strong> 
+                            <span id="info-lat">-</span>
+                        </td>
+                        <td><strong><i class="fas fa-globe-americas me-1"></i>Longitude:</strong> 
+                            <span id="info-lng">-</span>
+                        </td>
+                    </tr>
+                    <tr class="advanced-field">
+                        <td><strong><i class="fas fa-bullseye me-1"></i>Accuracy:</strong> 
+                            <span id="info-accuracy">-</span>
+                        </td>
+                        <td><strong><i class="fas fa-compass me-1"></i>Bearing:</strong> 
+                            <span id="info-bearing">-</span>
+                        </td>
+                    </tr>
+                    <tr class="advanced-field">
+                        <td><strong><i class="fas fa-mountain me-1"></i>Altitude:</strong> 
+                            <span id="info-altitude" class="value">-</span>
+                        </td>
+                        <td><strong><i class="fas fa-plug me-1"></i>Charging:</strong> 
+                            <span id="info-charging">-</span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Map Container -->
+        <div id="map" class="panel mx-2 mb-2"></div>
+    </div>
+
+    <!-- Scripts -->
+    <!-- Correct Firebase 8.x SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    
+    <!-- Other Libraries -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.fullscreen@2.0.0/Control.FullScreen.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Enhanced version with Firebase 8.x compatibility
+        // Globals
+        let map, scootyMarker, pathLayer, configRef, currentLocationRef, configData = {};
+        let pingIntervalId = null, statsIntervalId = null, firebaseConnected = false;
+        let autoCenterEnabled = true, autoZoomEnabled = false, userLocation = null;
+        let geofenceCircles = [], geofences = [];
+        let wasOffline = true;
+        let lastGeofenceAlert = null;
+        let lastSpokenAlert = null;
+        let geofenceSpeech = new SpeechSynthesisUtterance();
+
+        // === Initialize everything ===
+        function init() {
+            initMap();
+            setupEventListeners();
+            requestUserLocation();
+            initFirebase();
+            
+            // Show demo mode if Firebase doesn't connect
+            setTimeout(() => {
+                if (!firebaseConnected) {
+                    showDemoMode();
+                }
+            }, 2000);
+        }
+
+        // === Improved Map Initialization ===
+        function initMap() {
+            const initialZoom = parseInt(document.getElementById('zoom-level').value) || 17;
+            map = L.map('map', {
+                fullscreenControl: true,
+                fullscreenControlOptions: { position: 'topleft' }
+            }).setView([33.998752, 71.468523], initialZoom);
+            
+            updateMapStyle();
+            L.control.scale({ imperial: false }).addTo(map);
+        }
+
+        // === Simplified Firebase Initialization for Public Database ===
+        function initFirebase() {
+            const url = document.getElementById('firebase-url').value.trim();
+            const path = document.getElementById('firebase-path').value.trim();
+            
+            if (!url) {
+                showMessage('Please enter Firebase URL', 'error');
+                return false;
+            }
+            
+            updateConnectionStatus('connecting');
+            
+            try {
+                // Initialize Firebase with just the database URL
+                const firebaseConfig = {
+                    databaseURL: url
+                };
+                
+                // Check if Firebase is already initialized
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
+                }
+                
+                const database = firebase.database();
+                
+                // Set references
+                currentLocationRef = database.ref(path + '/currentLocation');
+                configRef = database.ref(path + '/locationconfig');
+                
+                // Test connection by reading a value
+                currentLocationRef.child('Online').once('value')
+                    .then(() => {
+                        // Connection successful
+                        firebaseConnected = true;
+                        updateConnectionStatus('connected');
+                        
+                        // Start listening to location updates
+                        setupFirebaseListeners();
+                    })
+                    .catch(error => {
+                        console.error('Firebase connection error:', error);
+                        firebaseConnected = false;
+                        updateConnectionStatus('error');
+                        showMessage('Failed to connect to Firebase. Check your URL and database rules.', 'error');
+                    });
+                    
+                return true;
+                
+            } catch (error) {
+                console.error('Firebase initialization error:', error);
+                updateConnectionStatus('error');
+                showMessage('Firebase error: ' + error.message, 'error');
+                return false;
+            }
+        }
+
+        // === Setup Firebase Listeners ===
+        function setupFirebaseListeners() {
+            if (!firebaseConnected) return;
+            
+            // Listen for location updates
+            currentLocationRef.on('value', snapshot => {
+                const data = snapshot.val();
+                if (data) {
+                    updateLocationOnMap(data);
+                    
+                    // Check online status change
+                    if (wasOffline && data.Online === 'Online') {
+                        showOnlineAlert();
+                        wasOffline = false;
+                    } else if (data.Online === 'Offline') {
+                        wasOffline = true;
+                    }
+                }
+            }, error => {
+                console.error('Firebase listener error:', error);
+                showMessage('Error reading location data', 'error');
+            });
+            
+            // Load configuration
+            configRef.on('value', snapshot => {
+                configData = snapshot.val() || {};
+                updateConfigUI();
+            }, error => {
+                console.error('Config listener error:', error);
+            });
+            
+            // Load geofences
+            configRef.child('geofences').on('value', snapshot => {
+                const geofencesData = snapshot.val();
+                if (geofencesData && typeof geofencesData === 'object') {
+                    // Convert object to array
+                    geofences = Object.values(geofencesData);
+                } else {
+                    geofences = [];
+                }
+                updateGeofenceList();
+                drawGeofences(geofences);
+            }, error => {
+                console.error('Geofence listener error:', error);
+            });
+            
+            // Listen for messages
+            configRef.child('Message').on('value', snapshot => {
+                const message = snapshot.val();
+                if (message && typeof message === 'string' && message.trim() !== '') {
+                    updateLastMessage(message);
+                }
+            }, error => {
+                console.error('Message listener error:', error);
+            });
+        }
+
+        // === Improved Location Update ===
+        function updateLocationOnMap(data) {
+            const lat = parseFloat(data.Latitude);
+            const lng = parseFloat(data.Longitude);
+            
+            if (isNaN(lat) || isNaN(lng)) {
+                console.warn('Invalid latitude/longitude:', data.Latitude, data.Longitude);
+                return;
+            }
+            
+            // Update UI with all data
+            updateUIWithLocationData(data, lat, lng);
+            
+            // Get address from coordinates
+            reverseGeocode(lat, lng);
+            
+            // Check geofences
+            checkGeofences(lat, lng, data);
+            
+            // Update marker
+            updateScootyMarker(lat, lng, data.Bearing);
+            
+            // Update map view
+            updateMapView(lat, lng);
+            
+            // Update distance from user
+            updateDeviceDistance(lat, lng);
+        }
+
+        function updateUIWithLocationData(data, lat, lng) {
+            // Basic info
+            document.getElementById('info-lat').textContent = lat.toFixed(6);
+            document.getElementById('info-lng').textContent = lng.toFixed(6);
+            document.getElementById('info-accuracy').textContent = data.Accuracy ? data.Accuracy + ' m' : '-';
+            document.getElementById('info-altitude').textContent = data.Altitude ? data.Altitude + ' m' : '-';
+            document.getElementById('info-speed').textContent = data.Speed ? data.Speed + ' km/h' : '-';
+            document.getElementById('info-bearing').textContent = data.Bearing ? data.Bearing + '°' : '-';
+            document.getElementById('info-time').textContent = data.Time || '-';
+            document.getElementById('info-ampere').textContent = data.Ampere || '-';
+            document.getElementById('info-charging').textContent = data.Charging || '-';
+            document.getElementById('info-status').textContent = data.Status || '-';
+            document.getElementById('info-online-status').textContent = data.Online || '-';
+            document.getElementById('info-last-update').textContent = new Date().toLocaleTimeString();
+            
+            // Battery with visual
+            updateBatteryDisplay(data.Battery, data.Charging);
+            
+            // Speedometer
+            updateSpeedometer(data.Speed);
+        }
+
+        function updateBatteryDisplay(battery, charging) {
+            const batEl = document.getElementById('info-battery');
+            const batteryVisual = document.getElementById('battery-visual');
+            const batteryLevel = document.getElementById('battery-level');
+            const batteryPercent = document.getElementById('battery-percent');
+            
+            if (battery && battery.includes('%')) {
+                const percent = parseInt(battery);
+                if (!isNaN(percent)) {
+                    // Update visual battery
+                    batteryLevel.style.width = percent + '%';
+                    batteryLevel.style.backgroundColor = percent > 50 ? '#06d6a0' : 
+                                                         percent > 20 ? '#ffbe0b' : '#ff006e';
+                    batteryPercent.textContent = percent + '%';
+                    batteryVisual.style.display = 'flex !important';
+                }
+                
+                // Update text display
+                batEl.innerHTML = charging === "Charging" ? 
+                    `${battery} <i class="fas fa-bolt charging-icon"></i>` : 
+                    battery;
+            } else {
+                batEl.textContent = battery || '-';
+                batteryVisual.style.display = 'none !important';
+            }
+        }
+
+        function updateSpeedometer(speed) {
+            const speedometer = document.getElementById('speedometer');
+            const speedometerValue = document.getElementById('speedometer-value');
+            
+            if (speed) {
+                const speedNum = parseFloat(speed);
+                if (!isNaN(speedNum)) {
+                    speedometerValue.textContent = Math.round(speedNum);
+                    speedometer.style.display = 'inline-block';
+                }
+            } else {
+                speedometer.style.display = 'none';
+            }
+        }
+
+        function updateScootyMarker(lat, lng, bearing) {
+            const bearingNum = parseFloat(bearing) || 0;
+            const icon = createScootyIcon(bearingNum);
+            
+            if (!scootyMarker) {
+                scootyMarker = L.marker([lat, lng], { icon })
+                    .addTo(map)
+                    .bindPopup('<b>Scooty Location</b><br>Click for details');
+            } else {
+                scootyMarker.setLatLng([lat, lng]).setIcon(icon);
+            }
+        }
+
+        function updateMapView(lat, lng) {
+            if (autoCenterEnabled) {
+                if (autoZoomEnabled) {
+                    map.setView([lat, lng], map.getZoom());
+                } else {
+                    map.setView([lat, lng]);
+                }
+            }
+        }
+
+        // === Reverse Geocoding ===
+        function reverseGeocode(lat, lng) {
+            const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
+            
+            fetch(url, {
+                headers: {
+                    'User-Agent': 'ScootyGPS-Tracker/1.0 (contact@example.com)'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                let address = '';
+                if (data.address) {
+                    const addr = data.address;
+                    address = [
+                        addr.house_number,
+                        addr.road,
+                        addr.suburb,
+                        addr.city,
+                        addr.state,
+                        addr.country
+                    ].filter(Boolean).join(', ');
+                }
+                
+                if (address) {
+                    document.getElementById('info-address').textContent = address;
+                } else {
+                    document.getElementById('info-address').textContent = 'Address not available';
+                }
+            })
+            .catch(error => {
+                console.error('Geocoding error:', error);
+                document.getElementById('info-address').textContent = 'Geocoding failed';
+            });
+        }
+
+        // === Enhanced Geofence Management ===
+        function checkGeofences(lat, lng, data) {
+            let insideName = null;
+            const currentLatLng = L.latLng(lat, lng);
+            
+            geofences.forEach(gf => {
+                const centerLatLng = L.latLng(gf.center[0], gf.center[1]);
+                const dist = currentLatLng.distanceTo(centerLatLng);
+                
+                if (dist <= gf.radius) {
+                    insideName = gf.name;
+                    
+                    // Highlight the geofence circle
+                    geofenceCircles.forEach(c => {
+                        if (c.getLatLng().equals(centerLatLng)) {
+                            c.setStyle({ fillColor: '#ff006e', color: '#ff006e', fillOpacity: 0.3 });
+                            setTimeout(() => {
+                                c.setStyle({ fillColor: '#ff0000', color: '#ff0000', fillOpacity: 0.1 });
+                            }, 2000);
+                        }
+                    });
+                }
+            });
+            
+            // Update place display
+            const placeEl = document.getElementById('info-place');
+            if (insideName) {
+                placeEl.textContent = `(${insideName})`;
+                placeEl.style.color = '#ff006e';
+                placeEl.style.fontWeight = '600';
+            } else {
+                placeEl.textContent = '';
+            }
+            
+            // Update geofence alert
+            const alertRow = document.getElementById('geofence-alert-row');
+            const alertText = document.getElementById('info-geofence-alert');
+            const alertMessage = insideName ? `Entering ${insideName}` : '';
+            
+            if (alertMessage) {
+                // Only show and speak if it's a new alert
+                if (lastGeofenceAlert !== alertMessage) {
+                    alertRow.style.display = 'table-row';
+                    alertText.textContent = alertMessage;
+                    lastGeofenceAlert = alertMessage;
+                    
+                    // Display speech bubble
+                    showSpeechBubble(alertMessage);
+                    
+                    // Speak the alert if sounds are enabled
+                    if (document.getElementById('config-sounds').checked) {
+                        speakGeofenceAlert(alertMessage);
+                    }
+                }
+            } else {
+                alertRow.style.display = 'none';
+                lastGeofenceAlert = null;
+            }
+        }
+
+        function speakGeofenceAlert(message) {
+            // Cancel any previous speech
+            window.speechSynthesis.cancel();
+            
+            geofenceSpeech.text = `Geofence alert: ${message}`;
+            geofenceSpeech.lang = 'en-US';
+            geofenceSpeech.volume = 1.0;
+            geofenceSpeech.rate = 0.9;
+            geofenceSpeech.pitch = 1.2;
+            
+            window.speechSynthesis.speak(geofenceSpeech);
+            lastSpokenAlert = message;
+        }
+
+        function showSpeechBubble(message) {
+            // Remove existing bubbles
+            const existingBubble = document.querySelector('.speech-bubble');
+            if (existingBubble) {
+                existingBubble.remove();
+            }
+            
+            // Create new bubble
+            const bubble = document.createElement('div');
+            bubble.className = 'speech-bubble animate__animated animate__slideInRight';
+            bubble.innerHTML = `
+                <i class="fas fa-bullhorn"></i>
+                <span>${message}</span>
+            `;
+            document.body.appendChild(bubble);
+            
+            // Remove after animation
+            setTimeout(() => {
+                if (bubble.parentNode) {
+                    bubble.parentNode.removeChild(bubble);
+                }
+            }, 4500);
+        }
+
+        function drawGeofences(geofences) {
+            // Remove existing circles
+            geofenceCircles.forEach(c => map.removeLayer(c));
+            geofenceCircles = [];
+            
+            // Add new circles
+            geofences.forEach(gf => {
+                const circle = L.circle(gf.center, {
+                    radius: gf.radius,
+                    color: '#ff0000',
+                    fillColor: '#ff0000',
+                    fillOpacity: 0.1,
+                    weight: 2,
+                    dashArray: '5, 5'
+                }).addTo(map);
+                
+                circle.bindPopup(`
+                    <div class="p-2">
+                        <h6 class="fw-bold mb-1">${gf.name}</h6>
+                        <p class="mb-1">Center: [${gf.center[0].toFixed(6)}, ${gf.center[1].toFixed(6)}]</p>
+                        <p class="mb-0">Radius: ${gf.radius}m</p>
+                    </div>
+                `);
+                
+                geofenceCircles.push(circle);
+            });
+        }
+
+        // === Enhanced Event Listeners ===
+        function setupEventListeners() {
+            // Configuration auto-save
+            document.querySelectorAll('#configuration-panel input, #configuration-panel select').forEach(el => {
+                if (el.type !== 'button' && el.type !== 'submit') {
+                    el.addEventListener('change', autoSaveConfig);
+                }
+            });
+            
+            // Map style change
+            document.getElementById('map-style').addEventListener('change', updateMapStyle);
+            
+            // Zoom controls
+            document.getElementById('zoom-level').addEventListener('change', updateMapZoom);
+            document.getElementById('apply-zoom').addEventListener('click', updateMapZoom);
+            
+            // Ping controls
+            document.getElementById('ping-now').addEventListener('click', pingDevice);
+            document.getElementById('auto-ping').addEventListener('change', toggleAutoPing);
+            
+            // Geofence controls
+            document.getElementById('add-geofence').addEventListener('click', addGeofence);
+            document.getElementById('save-geofence').addEventListener('click', saveGeofences);
+            
+            // Clear markers
+            document.getElementById('clear-markers').addEventListener('click', clearMarkers);
+            
+            // Save all config
+            document.getElementById('save-all-config').addEventListener('click', saveAllConfig);
+            
+            // Message sending
+            document.getElementById('send-message').addEventListener('click', sendMessage);
+            document.getElementById('message-input').addEventListener('keypress', e => {
+                if (e.key === 'Enter') sendMessage();
+            });
+            
+            // Export CSV
+            document.getElementById('export-csv').addEventListener('click', exportCSV);
+            
+            // Toggle events
+            document.getElementById('toggle-config').addEventListener('change', toggleConfigPanel);
+            document.getElementById('show-more-details').addEventListener('change', toggleAdvancedDetails);
+            document.getElementById('auto-center').addEventListener('change', e => autoCenterEnabled = e.target.checked);
+            document.getElementById('auto-zoom').addEventListener('change', e => autoZoomEnabled = e.target.checked);
+            
+            // Firebase URL/Path change
+            document.getElementById('firebase-url').addEventListener('change', reconnectFirebase);
+            document.getElementById('firebase-path').addEventListener('change', reconnectFirebase);
+        }
+
+        // === Helper Functions ===
+        function updateConnectionStatus(status) {
+            const el = document.getElementById('connection-status');
+            const ind = el.querySelector('.status-indicator');
+            const txt = el.querySelector('small');
+            const spinner = document.getElementById('connection-spinner');
+            
+            switch(status) {
+                case 'connected':
+                    ind.className = 'status-indicator online';
+                    txt.textContent = 'Connected';
+                    spinner.style.display = 'none';
+                    break;
+                case 'connecting':
+                    ind.className = 'status-indicator offline';
+                    txt.textContent = 'Connecting...';
+                    spinner.style.display = 'inline-block';
+                    break;
+                case 'error':
+                    ind.className = 'status-indicator offline';
+                    txt.textContent = 'Connection Error';
+                    spinner.style.display = 'none';
+                    break;
+                case 'demo':
+                    ind.className = 'status-indicator demo';
+                    txt.textContent = 'Demo Mode';
+                    spinner.style.display = 'none';
+                    break;
+                default:
+                    ind.className = 'status-indicator offline';
+                    txt.textContent = 'Not Connected';
+                    spinner.style.display = 'none';
+            }
+        }
+
+        function updateMapStyle() {
+            const style = document.getElementById('map-style').value;
+            map.eachLayer(l => l instanceof L.TileLayer && map.removeLayer(l));
+            
+            const layers = {
+                streets: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                hybrid: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+                dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+                topo: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png'
+            };
+            
+            L.tileLayer(layers[style] || layers.hybrid, {
+                maxZoom: 20,
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+        }
+
+        function createScootyIcon(bearing = 0) {
+            const adjustedBearing = bearing - 270;
+            return L.divIcon({
+                html: `
+                    <div class="position-relative">
+                        <div style="transform: rotate(${adjustedBearing}deg); font-size: 32px; text-shadow: 2px 2px 6px rgba(0,0,0,0.7);">
+                            🛵
+                        </div>
+                        <div style="position: absolute; top: -5px; right: -5px; width: 12px; height: 12px; background: #ff006e; border-radius: 50%; border: 2px solid white;"></div>
+                    </div>
+                `,
+                className: 'scooty-marker',
+                iconSize: [40, 40],
+                iconAnchor: [20, 20],
+                popupAnchor: [0, -20]
+            });
+        }
+
+        function updateDeviceDistance(lat, lng) {
+            const el = document.getElementById('info-device-distance');
+            if (!userLocation) {
+                el.textContent = '-';
+                return;
+            }
+            const d = userLocation.distanceTo(L.latLng(lat, lng));
+            el.textContent = d < 1000 ? `${d.toFixed(0)} m` : `${(d/1000).toFixed(2)} km`;
+        }
+
+        function initStatsUpdate() {
+            // No stats update needed as per requirements
+        }
+
+        function showDemoMode() {
+            updateConnectionStatus('demo');
+            
+            const interval = +document.getElementById('update-interval').value || 5000;
+            setInterval(() => {
+                if (!firebaseConnected) {
+                    const demoData = {
+                        Latitude: 33.998752 + (Math.random()-0.5)*0.002,
+                        Longitude: 71.468523 + (Math.random()-0.5)*0.002,
+                        Accuracy: (Math.random()*15).toFixed(1),
+                        Altitude: (Math.random()*50).toFixed(1),
+                        Speed: (Math.random()*25).toFixed(1),
+                        Bearing: (Math.random()*360).toFixed(0),
+                        Time: new Date().toLocaleTimeString(),
+                        Battery: Math.floor(Math.random()*100) + '%',
+                        Ampere: (Math.random()*500).toFixed(0) + ' mA',
+                        Charging: Math.random() > 0.7 ? 'Charging' : 'Not Charging',
+                        Status: 'Demo Mode',
+                        Online: 'Online'
+                    };
+                    updateLocationOnMap(demoData);
+                    fakeGeofenceCheck();
+                }
+            }, interval);
+        }
+
+        function fakeGeofenceCheck() {
+            if (Math.random() > 0.7 && geofences.length > 0) {
+                const randomGf = geofences[Math.floor(Math.random() * geofences.length)];
+                const alertMessage = `Entering ${randomGf.name}`;
+                // Simulate geofence alert
+                document.getElementById('geofence-alert-row').style.display = 'table-row';
+                document.getElementById('info-geofence-alert').textContent = alertMessage;
+                
+                // Display speech bubble
+                showSpeechBubble(alertMessage);
+                
+                // Speak the alert if sounds are enabled
+                if (document.getElementById('config-sounds').checked) {
+                    speakGeofenceAlert(alertMessage);
+                }
+            } else {
+                document.getElementById('geofence-alert-row').style.display = 'none';
+            }
+        }
+
+        function playAlertSound() {
+            try {
+                // Simple beep sound
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+                oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1);
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.3);
+            } catch (e) {
+                console.log('Audio not supported');
+            }
+        }
+
+        function showMessage(message, type) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show online-status-alert`;
+            alertDiv.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'} me-2"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            document.body.appendChild(alertDiv);
+            
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.parentNode.removeChild(alertDiv);
+                }
+            }, 3000);
+        }
+
+        function showOnlineAlert() {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-success alert-dismissible fade show online-status-alert';
+            alertDiv.innerHTML = `
+                <i class="fas fa-wifi me-2"></i>
+                <strong>Device Online!</strong> Scooty is now connected.
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            document.body.appendChild(alertDiv);
+            
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.parentNode.removeChild(alertDiv);
+                }
+            }, 4000);
+        }
+
+        function updateLastMessage(message) {
+            const container = document.getElementById('last-message-container');
+            const messageEl = document.getElementById('last-message');
+            const statusEl = document.getElementById('message-status');
+            
+            messageEl.textContent = message;
+            container.style.display = 'block';
+            statusEl.textContent = 'Received';
+            statusEl.style.background = 'linear-gradient(135deg, #06d6a0, #06d6a0)';
+            
+            setTimeout(() => {
+                statusEl.textContent = 'Ready';
+                statusEl.style.background = 'linear-gradient(135deg, var(--primary-color), var(--secondary-color))';
+            }, 3000);
+        }
+
+        // === Firebase-specific Functions ===
+        function reconnectFirebase() {
+            // Disconnect existing listeners
+            if (currentLocationRef) {
+                currentLocationRef.off();
+            }
+            if (configRef) {
+                configRef.off();
+                configRef.child('geofences').off();
+                configRef.child('Message').off();
+            }
+            
+            firebaseConnected = false;
+            updateConnectionStatus('connecting');
+            
+            // Reinitialize Firebase
+            setTimeout(() => {
+                initFirebase();
+            }, 500);
+        }
+
+        function updateConfigUI() {
+            if (!configData) return;
+            
+            document.getElementById('config-touch').checked = configData.Touch === 1;
+            document.getElementById('config-radius').value = configData.radius || 5;
+            document.getElementById('config-sheet').checked = configData.sheet || false;
+            document.getElementById('config-sthreshold').value = configData.sthreshold || 3;
+            document.getElementById('config-tinterval').value = configData.tinterval || 300;
+            document.getElementById('config-announcement').checked = configData.Announcement === 1;
+            document.getElementById('config-sounds').checked = configData.Sounds === 1;
+        }
+
+        // === Event Handler Functions ===
+        function toggleConfigPanel(e) {
+            const panel = document.getElementById('configuration-panel');
+            const label = document.querySelector('label[for="toggle-config"]');
+            
+            panel.classList.toggle('hidden', !e.target.checked);
+            label.innerHTML = e.target.checked ? 
+                '<i class="fas fa-cog me-1"></i> Hide Config' : 
+                '<i class="fas fa-cog me-1"></i> Show Config';
+        }
+
+        function toggleAdvancedDetails(e) {
+            document.querySelectorAll('.advanced-field').forEach(el => {
+                el.style.display = e.target.checked ? 'table-row' : 'none';
+            });
+        }
+
+        function pingDevice() {
+            if (!currentLocationRef || !configRef) {
+                showMessage('Not connected to Firebase', 'error');
+                return;
+            }
+            
+            // Show loading
+            const btn = document.getElementById('ping-now');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Pinging...';
+            btn.disabled = true;
+            
+            // Ping the device
+            currentLocationRef.child('Online').set('Offline')
+                .then(() => {
+                    return configRef.update({ online: "a" });
+                })
+                .then(() => {
+                    showMessage('Ping sent successfully', 'success');
+                })
+                .catch(error => {
+                    showMessage('Error sending ping: ' + error.message, 'error');
+                })
+                .finally(() => {
+                    // Reset button after 2 seconds
+                    setTimeout(() => {
+                        btn.innerHTML = originalHtml;
+                        btn.disabled = false;
+                    }, 2000);
+                });
+        }
+
+        function toggleAutoPing(e) {
+            clearInterval(pingIntervalId);
+            if (e.target.checked) {
+                const ms = +document.getElementById('ping-interval').value || 5000;
+                pingIntervalId = setInterval(pingDevice, ms);
+            }
+        }
+
+        function addGeofence() {
+            if (!configRef) {
+                showMessage('Not connected to Firebase', 'error');
+                return;
+            }
+            
+            const name = document.getElementById('gf-name').value.trim();
+            const lat = parseFloat(document.getElementById('gf-lat').value);
+            const lng = parseFloat(document.getElementById('gf-lng').value);
+            const radius = parseInt(document.getElementById('gf-radius').value);
+            
+            if (name && !isNaN(lat) && !isNaN(lng) && !isNaN(radius) && radius > 0) {
+                const newGeofence = {
+                    name: name,
+                    center: [lat, lng],
+                    radius: radius
+                };
+                
+                // Add to Firebase
+                configRef.child('geofences').push(newGeofence)
+                    .then(() => {
+                        showMessage('Geofence added successfully!', 'success');
+                        
+                        // Clear form
+                        document.getElementById('gf-name').value = '';
+                        document.getElementById('gf-lat').value = '';
+                        document.getElementById('gf-lng').value = '';
+                        document.getElementById('gf-radius').value = '';
+                    })
+                    .catch(error => {
+                        showMessage('Error adding geofence: ' + error.message, 'error');
+                    });
+            } else {
+                showMessage('Please fill all fields correctly.', 'error');
+            }
+        }
+
+        function saveGeofences() {
+            if (!configRef) {
+                showMessage('Not connected to Firebase', 'error');
+                return;
+            }
+            
+            // Convert array to object for Firebase
+            const geofencesObject = {};
+            geofences.forEach((gf, index) => {
+                geofencesObject[`geofence_${index}`] = gf;
+            });
+            
+            configRef.child('geofences').set(geofencesObject)
+                .then(() => {
+                    showMessage('Geofences saved successfully!', 'success');
+                })
+                .catch(error => {
+                    showMessage('Error saving geofences: ' + error.message, 'error');
+                });
+        }
+
+        function clearMarkers() {
+            if (scootyMarker) map.removeLayer(scootyMarker);
+            if (pathLayer) map.removeLayer(pathLayer);
+            
+            scootyMarker = null;
+            pathLayer = null;
+            
+            showMessage('Map cleared successfully!', 'success');
+        }
+
+        function autoSaveConfig() {
+            if (!configRef) return;
+            
+            const configUpdate = {
+                Touch: document.getElementById('config-touch').checked ? 1 : 0,
+                radius: +document.getElementById('config-radius').value || 5,
+                sheet: document.getElementById('config-sheet').checked,
+                sthreshold: +document.getElementById('config-sthreshold').value || 3,
+                tinterval: +document.getElementById('config-tinterval').value || 300,
+                Announcement: document.getElementById('config-announcement').checked ? 1 : 0,
+                Sounds: document.getElementById('config-sounds').checked ? 1 : 0
+            };
+            
+            configRef.update(configUpdate)
+                .catch(error => {
+                    console.error('Error saving config:', error);
+                });
+        }
+
+        function saveAllConfig() {
+            autoSaveConfig();
+            saveGeofences();
+        }
+
+        function sendMessage() {
+            const messageInput = document.getElementById('message-input');
+            const message = messageInput.value.trim();
+            const sendBtn = document.getElementById('send-message');
+            const spinner = document.getElementById('message-spinner');
+            
+            if (!configRef) {
+                showMessage('Not connected to Firebase', 'error');
+                return;
+            }
+            
+            if (message) {
+                // Show loading
+                sendBtn.disabled = true;
+                spinner.style.display = 'inline-block';
+                
+                configRef.child('Message').set(message)
+                    .then(() => {
+                        showMessage('Message sent successfully!', 'success');
+                        messageInput.value = '';
+                        
+                        // Update last message
+                        updateLastMessage(message);
+                    })
+                    .catch(error => {
+                        showMessage('Error sending message: ' + error.message, 'error');
+                    })
+                    .finally(() => {
+                        sendBtn.disabled = false;
+                        spinner.style.display = 'none';
+                    });
+            } else {
+                showMessage('Please enter a message', 'error');
+            }
+        }
+
+        function exportCSV() {
+            showMessage('CSV export feature is disabled as per request', 'info');
+        }
+
+        function updateMapZoom() {
+            const zoomLevel = parseInt(document.getElementById('zoom-level').value);
+            if (!isNaN(zoomLevel) && zoomLevel >= 1 && zoomLevel <= 20) {
+                map.setZoom(zoomLevel);
+                showMessage(`Zoom level set to ${zoomLevel}`, 'info');
+            }
+        }
+
+        function updateGeofenceList() {
+            const list = document.getElementById('gf-list');
+            list.innerHTML = '';
+            
+            geofences.forEach((gf, i) => {
+                const li = document.createElement('li');
+                li.className = 'list-group-item d-flex justify-content-between align-items-center geofence-item';
+                
+                li.innerHTML = `
+                    <div>
+                        <strong>${gf.name}</strong><br>
+                        <small class="text-muted">${gf.center[0].toFixed(6)}, ${gf.center[1].toFixed(6)} | ${gf.radius}m</small>
+                    </div>
+                    <button class="btn btn-danger btn-sm">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                `;
+                
+                const deleteBtn = li.querySelector('button');
+                deleteBtn.onclick = () => {
+                    if (!configRef) {
+                        showMessage('Not connected to Firebase', 'error');
+                        return;
+                    }
+                    
+                    // Find the key in Firebase
+                    configRef.child('geofences').once('value', snapshot => {
+                        const data = snapshot.val();
+                        if (data) {
+                            const keys = Object.keys(data);
+                            if (keys[i]) {
+                                configRef.child('geofences').child(keys[i]).remove()
+                                    .then(() => {
+                                        showMessage('Geofence deleted', 'success');
+                                    })
+                                    .catch(error => {
+                                        showMessage('Error deleting geofence: ' + error.message, 'error');
+                                    });
+                            }
+                        }
+                    });
+                };
+                
+                list.appendChild(li);
+            });
+        }
+
+        function requestUserLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    position => {
+                        userLocation = L.latLng(position.coords.latitude, position.coords.longitude);
+                    },
+                    error => {
+                        console.log('Geolocation error:', error);
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    }
+                );
+            }
+        }
+
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
